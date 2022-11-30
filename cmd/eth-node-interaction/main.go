@@ -65,5 +65,5 @@ func runService() error {
 
 	http.Handle("/", server)
 
-	return http.ListenAndServe("localhost:1337", nil)
+	return http.ListenAndServe(fmt.Sprintf("localhost:%d", cfg.ApiPort), nil)
 }

@@ -13,7 +13,7 @@ func NewConfig(envPath string) (Config, error) {
 	}
 
 	return Config{
-		ApiPort:         getEnvAsInt("PORT", 31337),
+		ApiPort:         getEnvAsInt("API_PORT", 31337),
 		EthNodeUrl:      getEnv("ETH_NODE_URL", ""),
 		DbConnectionUrl: getEnv("DB_CONNECTION_URL", ""),
 	}, nil
