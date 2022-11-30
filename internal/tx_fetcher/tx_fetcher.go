@@ -30,7 +30,7 @@ func (tf *txFetcher) FetchTx(ctx context.Context, token *string, hash string, re
 	}
 
 	txHash := common.HexToHash(hash)
-	fmt.Println(txHash)
+
 	rawTx, isPending, err := tf.client.TransactionByHash(ctx, txHash)
 	if err != nil {
 		log.Println(err)
