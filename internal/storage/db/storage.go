@@ -24,11 +24,14 @@ func (s *storage) ExecuteMigrations(ctx context.Context) error {
 }
 
 func (s *storage) GetTx(ctx context.Context, hash string) (model.Transaction, error) {
-	var transaction model.Transaction
-	if err := s.db.SelectContext(ctx, &transaction, s.db.Rebind(`SELECT * FROM transaction WHERE transaction_hash = ?`), hash); err != nil {
+	var transactions []model.Transaction
+	if err := s.db.SelectContext(ctx, &transactions, s.db.Rebind(`SELECT * FROM transaction WHERE transaction_hash = ?`), hash); err != nil {
 		return model.Transaction{}, err
 	}
-	return transaction, nil
+	if len(transactions) == 0 {
+		return model.Transaction{}, fmt.Errorf("tx (%s) not found.", hash)
+	}
+	return transactions[0], nil
 }
 
 func (s *storage) StoreTx(ctx context.Context, transaction model.Transaction, token *string) error {

@@ -6,13 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/avalkov/eth-node-interaction/internal/model"
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/umbracle/fastrlp"
 )
 
@@ -23,21 +20,21 @@ func NewLimeService(txFetcher txFetcher, authenticator authenticator) *Lime {
 	}
 }
 
-func (l *Lime) GetEthTransactions(r *http.Request, args *interface{}, reply *GetEthTransactionsReply) error {
-	fmt.Printf("GetEthTransactions: %+v\r\n", args)
-	fmt.Printf("GetEthTransactions Kind: %v\r\n", reflect.TypeOf(*args).Kind())
-	switch reflect.TypeOf(*args).Kind() {
-	case reflect.Slice:
-		s := reflect.ValueOf(*args)
+func (l *Lime) GetEthTransactions(r *http.Request, args *[]string, reply *GetEthTransactionsReply) error {
+	txs := (*args)[0]
 
-		for i := 0; i < s.Len(); i++ {
-			fmt.Println(s.Index(i))
+	var token *string
+	if len((*args)) == 2 {
+		token = &(*args)[1]
+
+		if err := l.authenticator.VerifyToken(*token); err != nil {
+			return err
 		}
 	}
+
 	parser := &fastrlp.Parser{}
-	txHashes, err := parser.Parse(unhex(""))
+	txHashes, err := parser.Parse(unhex(txs))
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -49,14 +46,13 @@ func (l *Lime) GetEthTransactions(r *http.Request, args *interface{}, reply *Get
 	results := make(chan model.Transaction, count)
 
 	for i := 0; i < count; i++ {
-		value := txHashes.Get(0)
+		value := txHashes.Get(i)
 		hash, err := value.GetString()
 		if err != nil {
-			fmt.Println(err)
 			return err
 		}
 
-		go l.txFetcher.FetchTx(r.Context(), nil, hash, results, &wg)
+		go l.txFetcher.FetchTx(r.Context(), token, hash, results, &wg)
 	}
 
 	go func() {
@@ -82,14 +78,23 @@ func (l *Lime) GetAllTransactions(r *http.Request, _ *string, reply *GetEthTrans
 	}
 
 	reply.Transactions = transactions
+
 	return nil
 }
 
-func (l *Lime) GetMyTransactions(r *http.Request, _ *string, reply *GetEthTransactionsReply) error {
-	values := r.Header.Values(tokenHeader)
-	if len(values) == 0 || values[0] == "" {
-		return errors.New("token header not set")
+func (l *Lime) GetMyTransactions(r *http.Request, args *[]string, reply *GetEthTransactionsReply) error {
+	l.authenticator.VerifyToken((*args)[0])
+
+	if len((*args)) == 1 {
+		errors.New("missing token")
 	}
+
+	transactions, err := l.txFetcher.FetchAllCachedTxByToken(r.Context(), (*args)[1])
+	if err != nil {
+		return err
+	}
+
+	reply.Transactions = transactions
 
 	return nil
 }
@@ -99,20 +104,7 @@ func (l *Lime) Authenticate(r *http.Request, request *AuthenticateRequest, reply
 		return errors.New("invalid credentials")
 	}
 
-	if err := l.authenticator.Authenticate(request.Username, request.Password); err != nil {
-		return err
-	}
-
-	expirationTime := time.Now().Add(666 * time.Minute)
-	claims := &Claims{
-		Username: request.Username,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := l.authenticator.Authenticate(r.Context(), request.Username, request.Password)
 	if err != nil {
 		return err
 	}
@@ -143,22 +135,15 @@ type GetEthTransactionsReply struct {
 	Transactions []model.Transaction `json:"transactions"`
 }
 
-type Claims struct {
-	Username string `json:"username"`
-	jwt.RegisteredClaims
-}
-
-const tokenHeader = "Token"
-
-var jwtKey = []byte("lime_secret_key")
-
 type txFetcher interface {
 	FetchTx(ctx context.Context, token *string, hash string, results chan model.Transaction, wg *sync.WaitGroup)
 	FetchAllCachedTx(ctx context.Context) ([]model.Transaction, error)
+	FetchAllCachedTxByToken(ctx context.Context, token string) ([]model.Transaction, error)
 }
 
 type authenticator interface {
-	Authenticate(username, password string) error
+	Authenticate(ctx context.Context, username, password string) (string, error)
+	VerifyToken(token string) error
 }
 
 type Lime struct {

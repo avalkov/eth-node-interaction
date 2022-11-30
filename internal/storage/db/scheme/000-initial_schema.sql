@@ -5,7 +5,6 @@ CREATE TABLE migration
     created_at BIGINT NOT NULL
 );
 
-
 CREATE TABLE transaction
 (
 	transaction_hash TEXT PRIMARY KEY NOT NULL,
@@ -32,7 +31,6 @@ CREATE TABLE users
     username TEXT NOT NULL PRIMARY KEY,
     password TEXT NOT NULL
 );
-
 
 INSERT INTO users (username, password)
 VALUES 

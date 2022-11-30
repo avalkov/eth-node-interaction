@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/avalkov/eth-node-interaction/internal/authenticator"
 	"github.com/avalkov/eth-node-interaction/internal/config"
 	rpccodecs "github.com/avalkov/eth-node-interaction/internal/rpc_codecs"
 	rpcservices "github.com/avalkov/eth-node-interaction/internal/rpc_services"
@@ -50,13 +51,15 @@ func runService() error {
 
 	server := rpc.NewServer()
 
-	codec := rpccodecs.NewTranslateMethodsCodec()
+	codec := rpccodecs.NewCustomRequestsCodec()
 	server.RegisterCodec(codec, "application/json")
 	server.RegisterCodec(codec, "application/json;charset=UTF-8")
 
 	txFetcher := txfetcher.NewTxFetcher(storage, client)
 
-	if err := server.RegisterService(rpcservices.NewLimeService(txFetcher, nil), ""); err != nil {
+	auth := authenticator.NewAuthenticator(storage)
+
+	if err := server.RegisterService(rpcservices.NewLimeService(txFetcher, auth), ""); err != nil {
 		return err
 	}
 

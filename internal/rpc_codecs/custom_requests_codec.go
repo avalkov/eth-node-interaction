@@ -12,26 +12,26 @@ import (
 	"github.com/gorilla/rpc"
 )
 
-type TranslateMethodsCodec struct {
+type CustomRequestsCodec struct {
 }
 
-func NewTranslateMethodsCodec() *TranslateMethodsCodec {
-	return &TranslateMethodsCodec{}
+func NewCustomRequestsCodec() *CustomRequestsCodec {
+	return &CustomRequestsCodec{}
 }
 
-func (c *TranslateMethodsCodec) NewRequest(r *http.Request) rpc.CodecRequest {
-	outerCR := &TranslateMethodsCodecRequest{}
+func (c *CustomRequestsCodec) NewRequest(r *http.Request) rpc.CodecRequest {
+	outerCR := &CustomRequestsCodecRequest{}
 	jsonC := NewCodec()
 	innerCR := jsonC.NewRequest(r)
 	outerCR.CodecRequest = innerCR.(*CodecRequest)
 	return outerCR
 }
 
-type TranslateMethodsCodecRequest struct {
+type CustomRequestsCodecRequest struct {
 	*CodecRequest
 }
 
-func (c *TranslateMethodsCodecRequest) Method() (string, error) {
+func (c *CustomRequestsCodecRequest) Method() (string, error) {
 	m, err := c.CodecRequest.Method()
 	if len(m) > 1 && err == nil {
 		parts := strings.Split(m, "_")
