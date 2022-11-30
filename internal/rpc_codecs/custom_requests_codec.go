@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -129,12 +130,15 @@ func (c *CodecRequest) Method() (string, error) {
 func (c *CodecRequest) ReadRequest(args interface{}) error {
 	if c.err == nil {
 		if c.request.Params != nil {
-			// JSON params is array value. RPC params is struct.
-			// Unmarshal into array containing the request struct.
-			// params := []interface{}{args}
-			fmt.Printf("*c.request.Params: %s", *c.request.Params)
+
+			if reflect.ValueOf(args).Elem().Kind() == reflect.Struct {
+				params := []interface{}{args}
+				c.err = json.Unmarshal(*c.request.Params, &params)
+				return c.err
+			}
+
 			c.err = json.Unmarshal(*c.request.Params, &args)
-			fmt.Printf("params: %+v", args)
+
 		} else {
 			c.err = errors.New("rpc: method request ill-formed: missing params field")
 		}

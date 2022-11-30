@@ -105,8 +105,7 @@ func (l *Lime) GetMyTransactions(r *http.Request, args *[]string, reply *GetEthT
 	return nil
 }
 
-func (l *Lime) Authenticate(r *http.Request, requests *[]AuthenticateRequest, reply *AuthenticateReply) error {
-	request := (*requests)[0]
+func (l *Lime) Authenticate(r *http.Request, request *AuthenticateRequest, reply *AuthenticateReply) error {
 	if request.Username == "" || request.Password == "" {
 		return errors.New("invalid credentials")
 	}
