@@ -21,6 +21,10 @@ func NewLimeService(txFetcher txFetcher, authenticator authenticator) *Lime {
 }
 
 func (l *Lime) GetEthTransactions(r *http.Request, args *[]string, reply *GetEthTransactionsReply) error {
+	if len((*args)) == 0 {
+		return errors.New("missing tx hashes")
+	}
+
 	txs := (*args)[0]
 
 	var token *string
@@ -71,7 +75,7 @@ func (l *Lime) GetEthTransactions(r *http.Request, args *[]string, reply *GetEth
 	return nil
 }
 
-func (l *Lime) GetAllTransactions(r *http.Request, _ *string, reply *GetEthTransactionsReply) error {
+func (l *Lime) GetAllTransactions(r *http.Request, _ *[]string, reply *GetEthTransactionsReply) error {
 	transactions, err := l.txFetcher.FetchAllCachedTx(r.Context())
 	if err != nil {
 		return err
@@ -83,13 +87,15 @@ func (l *Lime) GetAllTransactions(r *http.Request, _ *string, reply *GetEthTrans
 }
 
 func (l *Lime) GetMyTransactions(r *http.Request, args *[]string, reply *GetEthTransactionsReply) error {
-	l.authenticator.VerifyToken((*args)[0])
-
-	if len((*args)) == 1 {
-		errors.New("missing token")
+	if len((*args)) == 0 {
+		return errors.New("missing token")
 	}
 
-	transactions, err := l.txFetcher.FetchAllCachedTxByToken(r.Context(), (*args)[1])
+	if err := l.authenticator.VerifyToken((*args)[0]); err != nil {
+		return err
+	}
+
+	transactions, err := l.txFetcher.FetchAllCachedTxByToken(r.Context(), (*args)[0])
 	if err != nil {
 		return err
 	}
@@ -99,7 +105,8 @@ func (l *Lime) GetMyTransactions(r *http.Request, args *[]string, reply *GetEthT
 	return nil
 }
 
-func (l *Lime) Authenticate(r *http.Request, request *AuthenticateRequest, reply *AuthenticateReply) error {
+func (l *Lime) Authenticate(r *http.Request, requests *[]AuthenticateRequest, reply *AuthenticateReply) error {
+	request := (*requests)[0]
 	if request.Username == "" || request.Password == "" {
 		return errors.New("invalid credentials")
 	}

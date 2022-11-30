@@ -72,7 +72,9 @@ func (s *storage) GetAllTxs(ctx context.Context) ([]model.Transaction, error) {
 
 func (s *storage) GetTxsByToken(ctx context.Context, token string) ([]model.Transaction, error) {
 	var transactions []model.Transaction
-	if err := s.db.SelectContext(ctx, &transactions, s.db.Rebind(`SELECT * FROM transaction AS t INNER JOIN token_transaction AS tt ON 
+	if err := s.db.SelectContext(ctx, &transactions, s.db.Rebind(`SELECT t.transaction_hash, t.transaction_status, 
+    t.block_hash, t.block_number, t.from_address, t.to_address, t.contract_address, t.logs_count, t.input, 
+    t.value FROM transaction AS t INNER JOIN token_transaction AS tt ON 
     t.transaction_hash = tt.transaction_hash WHERE tt.token = ?`), token); err != nil {
 		return nil, err
 	}
