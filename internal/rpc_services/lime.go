@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/avalkov/eth-node-interaction/internal/model"
 	"github.com/umbracle/fastrlp"
@@ -42,37 +41,21 @@ func (l *Lime) GetEthTransactions(r *http.Request, args *[]string, reply *GetEth
 		return err
 	}
 
-	count := txHashes.Elems()
+	hashes := []string{}
 
-	var wg sync.WaitGroup
-	wg.Add(count)
-
-	results := make(chan model.Transaction, count)
-
-	for i := 0; i < count; i++ {
+	for i := 0; i < txHashes.Elems(); i++ {
 		value := txHashes.Get(i)
 		hash, err := value.GetString()
 		if err != nil {
 			return err
 		}
 
-		go l.txFetcher.FetchTx(r.Context(), token, hash, results, &wg)
+		hashes = append(hashes, hash)
 	}
 
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
+	reply.Transactions, err = l.txFetcher.FetchTx(r.Context(), token, hashes)
 
-	for res := range results {
-		reply.Transactions = append(reply.Transactions, res)
-	}
-
-	if len(reply.Transactions) != count {
-		return fmt.Errorf("failed to fetch transactions")
-	}
-
-	return nil
+	return err
 }
 
 func (l *Lime) GetAllTransactions(r *http.Request, _ *[]string, reply *GetEthTransactionsReply) error {
@@ -142,7 +125,7 @@ type GetEthTransactionsReply struct {
 }
 
 type txFetcher interface {
-	FetchTx(ctx context.Context, token *string, hash string, results chan model.Transaction, wg *sync.WaitGroup)
+	FetchTx(ctx context.Context, token *string, txHashes []string) ([]model.Transaction, error)
 	FetchAllCachedTx(ctx context.Context) ([]model.Transaction, error)
 	FetchAllCachedTxByToken(ctx context.Context, token string) ([]model.Transaction, error)
 }

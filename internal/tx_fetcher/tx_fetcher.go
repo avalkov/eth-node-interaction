@@ -20,7 +20,36 @@ func NewTxFetcher(storage storage, client client) *txFetcher {
 	}
 }
 
-func (tf *txFetcher) FetchTx(ctx context.Context, token *string, hash string, results chan model.Transaction, wg *sync.WaitGroup) {
+func (tf *txFetcher) FetchTx(ctx context.Context, token *string, txHashes []string) ([]model.Transaction, error) {
+	count := len(txHashes)
+
+	var wg sync.WaitGroup
+	wg.Add(count)
+
+	results := make(chan model.Transaction, count)
+
+	for i := 0; i < count; i++ {
+		go tf.fetchTx(ctx, token, txHashes[i], results, &wg)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	transactions := []model.Transaction{}
+	for res := range results {
+		transactions = append(transactions, res)
+	}
+
+	if len(transactions) != count {
+		return nil, fmt.Errorf("failed to fetch transactions: %v", txHashes)
+	}
+
+	return transactions, nil
+}
+
+func (tf *txFetcher) fetchTx(ctx context.Context, token *string, hash string, results chan model.Transaction, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	tx, err := tf.storage.GetTx(ctx, hash)
